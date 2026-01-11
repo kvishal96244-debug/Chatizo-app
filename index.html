@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatizo - Join Games, Make Friends & Chat</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Sign-In -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+    <!-- Auth Screen -->
+    <div id="authScreen" class="screen">
+        <div class="auth-container">
+            <div class="logo">
+                <i class="fas fa-heart"></i>
+                <h1>Chatizo</h1>
+                <p>Join Games, Make Friends & Chat</p>
+            </div>
+            
+            <div class="auth-options">
+                <h2>Get Started</h2>
+                
+                <div class="guest-login">
+                    <h3>Quick Guest Login</h3>
+                    <div class="gender-select">
+                        <button class="gender-btn male" onclick="selectGender('male')">
+                            <i class="fas fa-mars"></i> Male
+                        </button>
+                        <button class="gender-btn female" onclick="selectGender('female')">
+                            <i class="fas fa-venus"></i> Female
+                        </button>
+                    </div>
+                    
+                    <div class="guest-form" id="guestForm">
+                        <input type="text" id="guestName" placeholder="Your Name" maxlength="20">
+                        <input type="number" id="guestAge" placeholder="Age" min="18" max="80">
+                        <button onclick="guestLogin()">Start Chatting</button>
+                    </div>
+                </div>
+                
+                <div class="divider">
+                    <span>OR</span>
+                </div>
+                
+                <div class="email-login">
+                    <h3>Email Login</h3>
+                    <input type="email" id="email" placeholder="Your Email">
+                    <input type="text" id="emailName" placeholder="Your Name">
+                    <div class="gender-select">
+                        <button class="gender-btn male" onclick="selectEmailGender('male')">
+                            <i class="fas fa-mars"></i> Male
+                        </button>
+                        <button class="gender-btn female" onclick="selectEmailGender('female')">
+                            <i class="fas fa-venus"></i> Female
+                        </button>
+                    </div>
+                    <input type="number" id="emailAge" placeholder="Age" min="18" max="80">
+                    <button onclick="emailLogin()">Continue with Email</button>
+                </div>
+                
+                <div class="divider">
+                    <span>OR</span>
+                </div>
+                
+                <div class="google-login">
+                    <h3>Quick Login</h3>
+                    <div id="g_id_onload"
+                         data-client_id="YOUR_GOOGLE_CLIENT_ID"
+                         data-context="signin"
+                         data-ux_mode="popup"
+                         data-callback="handleGoogleSignIn"
+                         data-auto_prompt="false">
+                    </div>
+                    <div class="g_id_signin"
+                         data-type="standard"
+                         data-shape="pill"
+                         data-theme="filled_blue"
+                         data-text="signin_with"
+                         data-size="large"
+                         data-logo_alignment="left">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Chat Screen -->
+    <div id="chatScreen" class="screen hidden">
+        <div class="header">
+            <div class="header-left">
+                <i class="fas fa-heart logo-icon"></i>
+                <h2>Chatizo</h2>
+            </div>
+            <div class="header-center">
+                <span class="user-info">
+                    <i class="fas fa-user"></i>
+                    <span id="currentUser">Guest</span>
+                    (<span id="userGender">Male</span>)
+                </span>
+            </div>
+            <div class="header-right">
+                <button class="btn-icon" onclick="showGameRooms()" title="Join Game">
+                    <i class="fas fa-gamepad"></i>
+                </button>
+                <button class="btn-icon" onclick="toggleTheme()" title="Theme">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <button class="btn-icon" onclick="logout()" title="Logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="container">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="sidebar-section">
+                    <h3><i class="fas fa-users"></i> Online Users</h3>
+                    <div id="onlineUsers" class="users-list">
+                        <!-- Dynamic online users will appear here -->
+                    </div>
+                </div>
+                
+                <div class="sidebar-section">
+                    <h3><i class="fas fa-door-open"></i> Available Rooms</h3>
+                    <div id="roomList" class="rooms-list">
+                        <!-- Dynamic rooms will appear here -->
+                    </div>
+                    <button class="create-room-btn" onclick="createNewRoom()">
+                        <i class="fas fa-plus"></i> Create Room
+                    </button>
+                </div>
+                
+                <div class="sidebar-section">
+                    <h3><i class="fas fa-trophy"></i> Games</h3>
+                    <div class="games-list">
+                        <button class="game-btn" onclick="joinMathGame()">
+                            <i class="fas fa-calculator"></i> Math Challenge
+                        </button>
+                        <button class="game-btn" onclick="joinTriviaGame()">
+                            <i class="fas fa-brain"></i> Quick Trivia
+                        </button>
+                        <button class="game-btn" onclick="joinFlirtGame()">
+                            <i class="fas fa-heart"></i> Romantic Quiz
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Chat Area -->
+            <div class="main-content">
+                <div class="chat-header">
+                    <div class="room-info">
+                        <h3 id="currentRoom">Lobby</h3>
+                        <span class="room-stats" id="roomStats">0 users</span>
+                    </div>
+                    <div class="room-actions">
+                        <button class="btn-small" onclick="inviteFriend()">
+                            <i class="fas fa-user-plus"></i> Invite
+                        </button>
+                        <button class="btn-small" onclick="leaveRoom()">
+                            <i class="fas fa-times"></i> Leave
+                        </button>
+                    </div>
+                </div>
+
+                <div class="chat-container">
+                    <div id="messages" class="messages">
+                        <!-- Messages will appear here -->
+                    </div>
+                    
+                    <div class="typing-indicator" id="typingIndicator">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+
+                <div class="input-area">
+                    <div class="input-container">
+                        <input type="text" id="messageInput" placeholder="Type your message..." maxlength="500">
+                        <button id="sendButton" onclick="sendMessage()">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <div class="quick-actions">
+                        <button class="quick-btn" onclick="sendRomanticMessage()">
+                            <i class="fas fa-heart"></i> Romantic
+                        </button>
+                        <button class="quick-btn" onclick="sendFlirtMessage()">
+                            <i class="fas fa-kiss-wink-heart"></i> Flirt
+                        </button>
+                        <button class="quick-btn" onclick="sendGameInvite()">
+                            <i class="fas fa-gamepad"></i> Game
+                        </button>
+                        <button class="quick-btn" onclick="showEmojiPicker()">
+                            <i class="far fa-smile"></i> Emoji
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Panel -->
+            <div class="user-panel">
+                <div class="user-profile">
+                    <div class="avatar" id="userAvatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <h4 id="panelUserName">Guest</h4>
+                    <p><i class="fas fa-venus-mars"></i> <span id="panelUserGender">Male</span></p>
+                    <p><i class="fas fa-birthday-cake"></i> <span id="panelUserAge">25</span> years</p>
+                </div>
+                
+                <div class="ai-status">
+                    <h4><i class="fas fa-robot"></i> AI Companion Status</h4>
+                    <div class="status-indicator active">
+                        <span class="status-dot"></span> AI Active
+                    </div>
+                    <p class="ai-hint">AI will join if no human connects in 30-60 seconds</p>
+                </div>
+                
+                <div class="current-game">
+                    <h4><i class="fas fa-chess"></i> Active Game</h4>
+                    <div id="currentGame">None</div>
+                    <button class="btn-small" onclick="viewGameStats()">Stats</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Room Modal -->
+    <div id="gameModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2><i class="fas fa-gamepad"></i> Join a Game Room</h2>
+            <div id="gameRooms">
+                <!-- Game rooms will be dynamically added -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn-primary" onclick="createGameRoom()">
+                    <i class="fas fa-plus"></i> Create New Game
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Emoji Picker -->
+    <div id="emojiPicker" class="emoji-picker hidden">
+        <div class="emoji-category">
+            <button onclick="insertEmoji('❤️')">❤️</button>
+            <button onclick="insertEmoji('😊')">😊</button>
+            <button onclick="insertEmoji('😂')">😂</button>
+            <button onclick="insertEmoji('😍')">😍</button>
+            <button onclick="insertEmoji('😘')">😘</button>
+            <button onclick="insertEmoji('🥰')">🥰</button>
+            <button onclick="insertEmoji('😎')">😎</button>
+            <button onclick="insertEmoji('🤗')">🤗</button>
+            <button onclick="insertEmoji('🌹')">🌹</button>
+            <button onclick="insertEmoji('💕')">💕</button>
+        </div>
+    </div>
+
+    <script src="auth/auth.js"></script>
+    <script src="ai-engine.js"></script>
+    <script src="games/game-manager.js"></script>
+    <script src="games/math-game.js"></script>
+    <script src="script.js"></script>
+</body>
+  </html>
