@@ -1,325 +1,174 @@
-// Math Game for Chatizo
-
 class MathGame {
-    constructor(roomId) {
-        this.roomId = roomId;
-        this.players = [];
-        this.currentQuestion = null;
-        this.scores = {};
-        this.difficulty = 'easy';
-        this.isActive = false;
-        this.timeLimit = 30; // seconds
-        this.timer = null;
-        
-        // Question database
-        this.questions = {
-            easy: [
-                { question: "5 + 7 = ?", answer: 12, type: "addition" },
-                { question: "15 - 8 = ?", answer: 7, type: "subtraction" },
-                { question: "6 × 3 = ?", answer: 18, type: "multiplication" },
-                { question: "24 ÷ 6 = ?", answer: 4, type: "division" },
-                { question: "9 + 11 = ?", answer: 20, type: "addition" },
-                { question: "30 - 14 = ?", answer: 16, type: "subtraction" },
-                { question: "7 × 4 = ?", answer: 28, type: "multiplication" },
-                { question: "36 ÷ 9 = ?", answer: 4, type: "division" },
-                { question: "12 + 18 = ?", answer: 30, type: "addition" },
-                { question: "25 - 13 = ?", answer: 12, type: "subtraction" }
-            ],
-            medium: [
-                { question: "15 × 6 = ?", answer: 90, type: "multiplication" },
-                { question: "72 ÷ 8 = ?", answer: 9, type: "division" },
-                { question: "23 + 47 = ?", answer: 70, type: "addition" },
-                { question: "85 - 29 = ?", answer: 56, type: "subtraction" },
-                { question: "13 × 7 = ?", answer: 91, type: "multiplication" },
-                { question: "121 ÷ 11 = ?", answer: 11, type: "division" },
-                { question: "56 + 78 = ?", answer: 134, type: "addition" },
-                { question: "150 - 67 = ?", answer: 83, type: "subtraction" },
-                { question: "25 × 4 = ?", answer: 100, type: "multiplication" },
-                { question: "144 ÷ 12 = ?", answer: 12, type: "division" }
-            ],
-            hard: [
-                { question: "47 × 23 = ?", answer: 1081, type: "multiplication" },
-                { question: "289 ÷ 17 = ?", answer: 17, type: "division" },
-                { question: "156 + 278 = ?", answer: 434, type: "addition" },
-                { question: "543 - 276 = ?", answer: 267, type: "subtraction" },
-                { question: "34 × 45 = ?", answer: 1530, type: "multiplication" },
-                { question: "576 ÷ 24 = ?", answer: 24, type: "division" },
-                { question: "789 + 456 = ?", answer: 1245, type: "addition" },
-                { question: "1000 - 567 = ?", answer: 433, type: "subtraction" },
-                { question: "89 × 56 = ?", answer: 4984, type: "multiplication" },
-                { question: "729 ÷ 27 = ?", answer: 27, type: "division" }
-            ]
+    constructor() {
+        this.gameTypes = {
+            'quick-math': this.quickMathGame,
+            'puzzle': this.puzzleGame,
+            'memory': this.memoryGame,
+            'speed': this.speedGame
         };
     }
     
-    // Add player to game
-    addPlayer(player) {
-        if (this.players.length >= 4) return false;
-        
-        this.players.push(player);
-        this.scores[player.id] = 0;
-        
-        // Adjust game settings based on players
-        this.adjustGameSettings();
-        
-        return true;
+    quickMathGame(difficulty) {
+        // This is already implemented in game-manager.js
+        return {
+            type: 'quick-math',
+            description: 'Fast calculations with time pressure',
+            timeLimit: 60
+        };
     }
     
-    // Adjust game settings based on number of players
-    adjustGameSettings() {
-        if (this.players.length === 1) {
-            this.difficulty = 'easy';
-            this.timeLimit = 45;
-        } else if (this.players.length === 2) {
-            // For 2 players, ensure gender balance if possible
-            const genders = this.players.map(p => p.gender);
-            if (genders[0] === genders[1]) {
-                // Try to add AI for balance
-                this.addAIPlayer();
+    puzzleGame(difficulty) {
+        const puzzles = [
+            {
+                question: "A number when divided by 3 leaves remainder 1, when divided by 4 leaves remainder 2. What is the smallest such number?",
+                answer: "10",
+                explanation: "10 ÷ 3 = 3 remainder 1, 10 ÷ 4 = 2 remainder 2",
+                options: ["8", "10", "14", "16"],
+                points: 25
+            },
+            {
+                question: "If 2 cats catch 2 mice in 2 minutes, how many cats are needed to catch 100 mice in 100 minutes?",
+                answer: "2",
+                explanation: "2 cats catch 2 mice in 2 minutes, so 1 cat catches 1 mouse in 2 minutes. In 100 minutes, 1 cat catches 50 mice. So 2 cats catch 100 mice.",
+                options: ["2", "4", "50", "100"],
+                points: 30
+            },
+            {
+                question: "What comes next: 1, 1, 2, 3, 5, 8, ?",
+                answer: "13",
+                explanation: "Fibonacci sequence: Each number is sum of previous two",
+                options: ["11", "12", "13", "14"],
+                points: 15
+            },
+            {
+                question: "A bat and a ball cost $1.10. The bat costs $1 more than the ball. How much does the ball cost?",
+                answer: "0.05",
+                explanation: "Ball = x, Bat = x + 1, Total = 2x + 1 = 1.10, so x = 0.05",
+                options: ["0.05", "0.10", "0.15", "1.00"],
+                points: 20
             }
-            this.difficulty = 'medium';
-            this.timeLimit = 35;
-        } else {
-            this.difficulty = 'hard';
-            this.timeLimit = 25;
+        ];
+        
+        return puzzles[Math.floor(Math.random() * puzzles.length)];
+    }
+    
+    memoryGame(difficulty) {
+        // Generate numbers to remember
+        const length = difficulty === 'easy' ? 3 : 
+                      difficulty === 'medium' ? 4 :
+                      difficulty === 'hard' ? 5 : 6;
+        
+        let numbers = [];
+        for (let i = 0; i < length; i++) {
+            numbers.push(Math.floor(Math.random() * 20) + 1);
         }
-    }
-    
-    // Add AI player for gender balance
-    addAIPlayer() {
-        const aiPlayer = {
-            id: 'ai_' + Date.now(),
-            name: this.players[0].gender === 'male' ? 'Priya' : 'Rohan',
-            gender: this.players[0].gender === 'male' ? 'female' : 'male',
-            isAI: true
-        };
         
-        this.players.push(aiPlayer);
-        this.scores[aiPlayer.id] = 0;
-    }
-    
-    // Start the game
-    startGame() {
-        if (this.players.length < 1) return false;
+        // Create operation
+        const operations = ['+', '-'];
+        const operation = operations[Math.floor(Math.random() * operations.length)];
         
-        this.isActive = true;
-        this.currentRound = 1;
-        this.totalRounds = 10;
+        let question = "";
+        let answer = numbers[0];
         
-        // Send game start message
-        this.broadcastMessage(`🎮 Math Game Started! 🎮\nDifficulty: ${this.difficulty}\nPlayers: ${this.players.length}\nGet ready for the first question!`);
+        if (operation === '+') {
+            question = numbers.join(' + ');
+            answer = numbers.reduce((a, b) => a + b, 0);
+        } else {
+            question = numbers.join(' - ');
+            answer = numbers.reduce((a, b) => a - b);
+        }
         
-        // Start first question after delay
+        // Show question for limited time
         setTimeout(() => {
-            this.nextQuestion();
+            document.getElementById('game-question').innerHTML = `
+                <h1>What was the result?</h1>
+                <p>You had: ${question}</p>
+            `;
         }, 3000);
         
-        return true;
+        return {
+            question: `Memorize this: ${question} = ?`,
+            answer: answer,
+            options: this.generateOptions(answer, difficulty),
+            type: 'memory',
+            points: 20
+        };
     }
     
-    // Get next question
-    nextQuestion() {
-        if (this.currentRound > this.totalRounds) {
-            this.endGame();
-            return;
-        }
+    speedGame(difficulty) {
+        // Generate multiple rapid-fire questions
+        const questions = [];
+        const count = difficulty === 'easy' ? 5 : 
+                     difficulty === 'medium' ? 7 :
+                     difficulty === 'hard' ? 10 : 15;
         
-        const questions = this.questions[this.difficulty];
-        this.currentQuestion = questions[Math.floor(Math.random() * questions.length)];
-        
-        // Broadcast question
-        this.broadcastMessage(`Question ${this.currentRound}/${this.totalRounds}\n${this.currentQuestion.question}\n⏱️ You have ${this.timeLimit} seconds!`);
-        
-        // Start timer
-        this.startTimer();
-        this.currentRound++;
-    }
-    
-    // Start timer for current question
-    startTimer() {
-        let timeLeft = this.timeLimit;
-        
-        this.timer = setInterval(() => {
-            timeLeft--;
+        for (let i = 0; i < count; i++) {
+            const num1 = Math.floor(Math.random() * 50) + 1;
+            const num2 = Math.floor(Math.random() * 50) + 1;
+            const operation = ['+', '-', '×'][Math.floor(Math.random() * 3)];
             
-            // Update time display every 5 seconds
-            if (timeLeft === 15 || timeLeft === 10 || timeLeft <= 5) {
-                this.broadcastMessage(`⏰ ${timeLeft} seconds remaining!`);
+            let answer;
+            switch(operation) {
+                case '+': answer = num1 + num2; break;
+                case '-': answer = num1 - num2; break;
+                case '×': answer = num1 * num2; break;
             }
             
-            if (timeLeft <= 0) {
-                clearInterval(this.timer);
-                this.revealAnswer();
-                
-                // Next question after delay
-                setTimeout(() => {
-                    this.nextQuestion();
-                }, 3000);
-            }
-        }, 1000);
-    }
-    
-    // Check answer
-    checkAnswer(playerId, answer) {
-        if (!this.isActive || !this.currentQuestion) return false;
-        
-        const isCorrect = parseInt(answer) === this.currentQuestion.answer;
-        
-        if (isCorrect) {
-            // Calculate points based on response time
-            const points = Math.floor(Math.random() * 50) + 50; // 50-100 points
-            this.scores[playerId] += points;
-            
-            // Clear timer
-            clearInterval(this.timer);
-            
-            // Find player name
-            const player = this.players.find(p => p.id === playerId);
-            this.broadcastMessage(`✅ ${player.name} answered correctly! +${points} points!`);
-            
-            // Next question after delay
-            setTimeout(() => {
-                this.nextQuestion();
-            }, 3000);
-        }
-        
-        return isCorrect;
-    }
-    
-    // Reveal answer
-    revealAnswer() {
-        if (!this.currentQuestion) return;
-        
-        this.broadcastMessage(`The correct answer was: ${this.currentQuestion.answer}\n${this.getScoreboard()}`);
-    }
-    
-    // Get current scoreboard
-    getScoreboard() {
-        let scoreboard = "📊 Current Scores:\n";
-        
-        // Sort players by score
-        const sortedPlayers = [...this.players].sort((a, b) => this.scores[b.id] - this.scores[a.id]);
-        
-        sortedPlayers.forEach((player, index) => {
-            scoreboard += `${index + 1}. ${player.name}: ${this.scores[player.id]} points\n`;
-        });
-        
-        return scoreboard;
-    }
-    
-    // End game
-    endGame() {
-        this.isActive = false;
-        clearInterval(this.timer);
-        
-        // Determine winner
-        const sortedPlayers = [...this.players].sort((a, b) => this.scores[b.id] - this.scores[a.id]);
-        const winner = sortedPlayers[0];
-        
-        // Broadcast results
-        let results = `🏆 Game Over! 🏆\n\n`;
-        results += `🎖️ Winner: ${winner.name} with ${this.scores[winner.id]} points!\n\n`;
-        results += this.getScoreboard();
-        results += `\nThanks for playing! 👏`;
-        
-        this.broadcastMessage(results);
-        
-        // Update current game display
-        document.getElementById('currentGame').innerHTML = `
-            <strong>Math Challenge</strong><br>
-            Winner: ${winner.name}<br>
-            Score: ${this.scores[winner.id]} points
-        `;
-        
-        // Reset after 10 seconds
-        setTimeout(() => {
-            document.getElementById('currentGame').innerHTML = 'None';
-        }, 10000);
-    }
-    
-    // Broadcast message to chat
-    broadcastMessage(text) {
-        addMessage({
-            sender: 'Math Game',
-            text: text,
-            type: 'game',
-            time: new Date()
-        });
-    }
-}
-
-// Game Manager
-let activeMathGame = null;
-
-// Join Math Game
-function joinMathGame() {
-    const roomId = 'math_' + Date.now();
-    activeMathGame = new MathGame(roomId);
-    
-    // Add current user
-    if (currentUser) {
-        activeMathGame.addPlayer(currentUser);
-    }
-    
-    // Start game
-    if (activeMathGame.startGame()) {
-        document.getElementById('currentGame').innerHTML = `
-            <strong>Math Challenge</strong><br>
-            Difficulty: ${activeMathGame.difficulty}<br>
-            Players: ${activeMathGame.players.length}
-        `;
-        
-        // Add join button for others
-        addMessage({
-            sender: 'System',
-            text: `🎮 Math Game created! Others can join by typing "!joinmath"`,
-            type: 'system',
-            time: new Date()
-        });
-    }
-}
-
-// Handle math game command
-function handleMathGameCommand(command, args) {
-    if (!activeMathGame || !activeMathGame.isActive) return false;
-    
-    switch(command) {
-        case '!joinmath':
-            if (currentUser && activeMathGame.addPlayer(currentUser)) {
-                addMessage({
-                    sender: 'System',
-                    text: `${currentUser.name} joined the math game!`,
-                    type: 'system',
-                    time: new Date()
-                });
-            }
-            return true;
-            
-        case '!answer':
-            if (args && args.length > 0) {
-                const answer = args[0];
-                const isCorrect = activeMathGame.checkAnswer(currentUser.id, answer);
-                
-                if (isCorrect) {
-                    addMessage({
-                        sender: currentUser.name,
-                        text: `My answer: ${answer}`,
-                        type: 'sent',
-                        time: new Date()
-                    });
-                }
-            }
-            return true;
-            
-        case '!scores':
-            addMessage({
-                sender: 'Math Game',
-                text: activeMathGame.getScoreboard(),
-                type: 'game',
-                time: new Date()
+            questions.push({
+                question: `${num1} ${operation} ${num2} = ?`,
+                answer: answer,
+                options: this.generateOptions(answer, difficulty)
             });
-            return true;
+        }
+        
+        return {
+            type: 'speed',
+            questions: questions,
+            timePerQuestion: difficulty === 'easy' ? 10 : 
+                           difficulty === 'medium' ? 8 :
+                           difficulty === 'hard' ? 6 : 4,
+            totalPoints: count * 10
+        };
     }
     
-    return false;
-                                                             }
+    generateOptions(correctAnswer, difficulty) {
+        const options = [correctAnswer];
+        const variance = difficulty === 'easy' ? 5 : 
+                        difficulty === 'medium' ? 10 :
+                        difficulty === 'hard' ? 15 : 20;
+        
+        while (options.length < 4) {
+            let wrongAnswer;
+            const offset = Math.floor(Math.random() * variance) + 1;
+            
+            if (Math.random() > 0.5) {
+                wrongAnswer = correctAnswer + offset;
+            } else {
+                wrongAnswer = Math.max(1, correctAnswer - offset);
+            }
+            
+            // Make sure wrong answer is different from correct and other wrong answers
+            if (!options.includes(wrongAnswer) && wrongAnswer !== correctAnswer) {
+                options.push(wrongAnswer);
+            }
+        }
+        
+        // Shuffle options
+        return options.sort(() => Math.random() - 0.5);
+    }
+    
+    getGameInstructions(gameType) {
+        const instructions = {
+            'quick-math': 'Solve as many problems as you can in 60 seconds!',
+            'puzzle': 'Solve the math puzzle. Think carefully!',
+            'memory': 'Memorize the equation, then solve it after it disappears!',
+            'speed': 'Answer questions quickly! Limited time per question.'
+        };
+        
+        return instructions[gameType] || 'Solve the math problems!';
+    }
+}
+
+// Initialize math game
+const mathGame = new MathGame();
+window.mathGame = mathGame;
