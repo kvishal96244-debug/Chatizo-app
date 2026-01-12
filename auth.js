@@ -1,203 +1,200 @@
-// Authentication System for Chatizo
-
-let currentUser = null;
-let selectedGender = 'male';
-let emailSelectedGender = 'male';
-
-// Select gender for guest login
-function selectGender(gender) {
-    selectedGender = gender;
-    document.querySelectorAll('.gender-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    document.getElementById('guestForm').style.display = 'block';
-}
-
-// Select gender for email login
-function selectEmailGender(gender) {
-    emailSelectedGender = gender;
-    document.querySelectorAll('.email-login .gender-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-}
-
-// Guest Login
-function guestLogin() {
-    const name = document.getElementById('guestName').value.trim();
-    const age = document.getElementById('guestAge').value;
-    
-    if (!name || !age) {
-        alert('Please enter both name and age');
-        return;
+class AuthManager {
+    constructor() {
+        this.currentUser = null;
+        this.init();
     }
     
-    if (age < 18 || age > 80) {
-        alert('Age must be between 18 and 80');
-        return;
+    init() {
+        this.loadUser();
+        this.setupEventListeners();
     }
     
-    // Generate guest email
-    const guestEmail = `${name.toLowerCase().replace(/\s+/g, '')}${Date.now()}@guest.chatizo.com`;
-    
-    currentUser = {
-        id: 'guest_' + Date.now(),
-        name: name,
-        email: guestEmail,
-        gender: selectedGender,
-        age: parseInt(age),
-        type: 'guest',
-        avatar: selectedGender === 'female' ? '👩' : '👨'
-    };
-    
-    loginUser();
-}
-
-// Email Login
-function emailLogin() {
-    const email = document.getElementById('email').value.trim();
-    const name = document.getElementById('emailName').value.trim();
-    const age = document.getElementById('emailAge').value;
-    
-    if (!email || !name || !age) {
-        alert('Please fill all fields');
-        return;
+    setupEventListeners() {
+        // Gender selection
+        document.querySelectorAll('.gender-option').forEach(option => {
+            option.addEventListener('click', () => {
+                document.querySelectorAll('.gender-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+                option.classList.add('selected');
+                document.getElementById('gender').value = option.dataset.gender;
+            });
+        });
+        
+        // Form submission
+        document.getElementById('auth-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleLogin();
+        });
     }
     
-    if (!validateEmail(email)) {
-        alert('Please enter a valid email');
-        return;
-    }
-    
-    if (age < 18 || age > 80) {
-        alert('Age must be between 18 and 80');
-        return;
-    }
-    
-    // Generate verification code (simulated)
-    const verificationCode = Math.floor(100000 + Math.random() * 900000);
-    
-    // In a real app, you would send this via email
-    const userEnteredCode = prompt(`Enter verification code sent to ${email}\n(Demo code: ${verificationCode})`);
-    
-    if (userEnteredCode == verificationCode) {
-        currentUser = {
-            id: 'email_' + Date.now(),
-            name: name,
-            email: email,
-            gender: emailSelectedGender,
-            age: parseInt(age),
-            type: 'email',
-            avatar: emailSelectedGender === 'female' ? '👩' : '👨',
-            verified: true
+    handleLogin() {
+        const username = document.getElementById('username').value.trim();
+        const gender = document.getElementById('gender').value;
+        const age = document.getElementById('age').value || null;
+        
+        if (!username || !gender) {
+            this.showNotification('Please enter your name and select gender', 'error');
+            return;
+        }
+        
+        this.currentUser = {
+            id: this.generateUserId(),
+            username,
+            gender,
+            age,
+            joinedAt: new Date().toISOString(),
+            coins: 100,
+            points: 0,
+            streak: 0,
+            lastLogin: new Date().toISOString(),
+            stats: {
+                gamesPlayed: 0,
+                correctAnswers: 0,
+                totalTime: 0
+            }
         };
         
-        loginUser();
-    } else {
-        alert('Invalid verification code');
+        this.saveUser();
+        this.showNotification(`Welcome ${username}! Let's play some math games!`, 'success');
+        
+        // Switch to main screen
+        setTimeout(() => {
+            document.getElementById('auth-screen').classList.remove('active');
+            document.getElementById('main-screen').classList.add('active');
+            this.updateUI();
+        }, 1000);
     }
-}
-
-// Google Sign-In Handler
-function handleGoogleSignIn(response) {
-    // Decode the credential response
-    const responsePayload = decodeJWT(response.credential);
     
-    currentUser = {
-        id: 'google_' + responsePayload.sub,
-        name: responsePayload.name,
-        email: responsePayload.email,
-        gender: 'male', // Default, can be updated later
-        age: 25, // Default age
-        type: 'google',
-        avatar: responsePayload.picture || '👤',
-        verified: true
-    };
+    generateUserId() {
+        return 'user_' + Math.random().toString(36).substr(2, 9);
+    }
     
-    // Show gender selection for Google users
-    setTimeout(() => {
-        const gender = prompt('Select your gender (male/female):', 'male');
-        if (gender === 'male' || gender === 'female') {
-            currentUser.gender = gender;
-            currentUser.avatar = gender === 'female' ? '👩' : '👨';
-            loginUser();
+    saveUser() {
+        localStorage.setItem('mathGameUser', JSON.stringify(this.currentUser));
+        
+        // Save to leaderboard
+        this.updateLeaderboard();
+    }
+    
+    loadUser() {
+        const savedUser = localStorage.getItem('mathGameUser');
+        if (savedUser) {
+            this.currentUser = JSON.parse(savedUser);
+            document.getElementById('auth-screen').classList.remove('active');
+            document.getElementById('main-screen').classList.add('active');
+            this.updateUI();
         }
-    }, 100);
-}
-
-// Decode JWT token (simplified)
-function decodeJWT(token) {
-    try {
-        const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join(''));
+    }
+    
+    updateUI() {
+        if (!this.currentUser) return;
         
-        return JSON.parse(jsonPayload);
-    } catch (e) {
-        console.error('Error decoding JWT:', e);
-        return {};
-    }
-}
-
-// Validate email
-function validateEmail(email) {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email);
-}
-
-// Login user and switch to chat screen
-function loginUser() {
-    if (!currentUser) return;
-    
-    // Update UI with user info
-    document.getElementById('currentUser').textContent = currentUser.name;
-    document.getElementById('userGender').textContent = currentUser.gender;
-    document.getElementById('panelUserName').textContent = currentUser.name;
-    document.getElementById('panelUserGender').textContent = currentUser.gender;
-    document.getElementById('panelUserAge').textContent = currentUser.age;
-    document.getElementById('userAvatar').innerHTML = currentUser.avatar;
-    
-    // Switch screens
-    document.getElementById('authScreen').classList.add('hidden');
-    document.getElementById('chatScreen').classList.remove('hidden');
-    
-    // Initialize chat and AI
-    initializeChat();
-    initializeAI();
-    
-    // Add welcome message
-    addMessage({
-        sender: 'System',
-        text: `Welcome to Chatizo, ${currentUser.name}! 😊`,
-        type: 'system',
-        time: new Date()
-    });
-    
-    // Start AI connection timer
-    startAIConnectionTimer();
-}
-
-// Logout
-function logout() {
-    if (confirm('Are you sure you want to logout?')) {
-        currentUser = null;
-        document.getElementById('authScreen').classList.remove('hidden');
-        document.getElementById('chatScreen').classList.add('hidden');
+        document.getElementById('current-username').textContent = this.currentUser.username;
+        document.getElementById('current-gender').textContent = this.currentUser.gender === 'male' ? 'Male' : 
+                                                              this.currentUser.gender === 'female' ? 'Female' : 'Other';
         
-        // Reset forms
-        document.getElementById('guestName').value = '';
-        document.getElementById('guestAge').value = '';
-        document.getElementById('email').value = '';
-        document.getElementById('emailName').value = '';
-        document.getElementById('emailAge').value = '';
+        document.getElementById('coins').textContent = this.currentUser.coins;
+        document.getElementById('points').textContent = this.currentUser.points;
+        document.getElementById('streak').textContent = this.currentUser.streak;
+        
+        // Update stats
+        document.getElementById('today-games').textContent = this.currentUser.stats.gamesPlayed;
+        document.getElementById('today-correct').textContent = this.currentUser.stats.correctAnswers;
+        document.getElementById('today-time').textContent = Math.floor(this.currentUser.stats.totalTime / 60) + 'm';
+    }
+    
+    updateLeaderboard() {
+        let leaderboard = JSON.parse(localStorage.getItem('mathLeaderboard') || '[]');
+        
+        // Check if user already exists in leaderboard
+        const existingUserIndex = leaderboard.findIndex(u => u.id === this.currentUser.id);
+        
+        if (existingUserIndex > -1) {
+            leaderboard[existingUserIndex] = this.currentUser;
+        } else {
+            leaderboard.push(this.currentUser);
+        }
+        
+        // Sort by points
+        leaderboard.sort((a, b) => b.points - a.points);
+        
+        // Keep only top 10
+        leaderboard = leaderboard.slice(0, 10);
+        
+        localStorage.setItem('mathLeaderboard', JSON.stringify(leaderboard));
+        this.displayLeaderboard();
+    }
+    
+    displayLeaderboard() {
+        const leaderboard = JSON.parse(localStorage.getItem('mathLeaderboard') || '[]');
+        const container = document.getElementById('leaderboard');
+        container.innerHTML = '';
+        
+        leaderboard.forEach((user, index) => {
+            const item = document.createElement('div');
+            item.className = 'leaderboard-item';
+            item.innerHTML = `
+                <span class="rank">${index + 1}</span>
+                <span class="name">${user.username}</span>
+                <span class="score">${user.points} pts</span>
+            `;
+            container.appendChild(item);
+        });
+    }
+    
+    logout() {
+        localStorage.removeItem('mathGameUser');
+        this.currentUser = null;
+        document.getElementById('main-screen').classList.remove('active');
+        document.getElementById('auth-screen').classList.add('active');
+        
+        // Reset form
+        document.getElementById('auth-form').reset();
+        document.querySelectorAll('.gender-option').forEach(opt => {
+            opt.classList.remove('selected');
+        });
+    }
+    
+    updateStats(gameType, score, timeSpent, correctAnswers) {
+        if (!this.currentUser) return;
+        
+        this.currentUser.stats.gamesPlayed++;
+        this.currentUser.stats.correctAnswers += correctAnswers;
+        this.currentUser.stats.totalTime += timeSpent;
+        
+        // Update points and coins
+        this.currentUser.points += score;
+        this.currentUser.coins += Math.floor(score / 10);
+        
+        // Update streak
+        const today = new Date().toDateString();
+        const lastLogin = new Date(this.currentUser.lastLogin).toDateString();
+        
+        if (today === lastLogin) {
+            this.currentUser.streak++;
+        } else {
+            this.currentUser.streak = 1;
+        }
+        
+        this.currentUser.lastLogin = new Date().toISOString();
+        
+        this.saveUser();
+        this.updateUI();
+    }
+    
+    showNotification(message, type = 'info') {
+        // This will be implemented in notifications.js
+        if (window.showNotification) {
+            window.showNotification(message, type);
+        } else {
+            alert(message);
+        }
     }
 }
 
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
-    // Check for existing session (simulated)
-    const savedUser = localStorage.getItem('chatizo_user');
-    if (savedUser) {
-        currentUser = JSON.parse(savedUser);
-        loginUser();
-    }
-});
+// Initialize auth manager
+const authManager = new AuthManager();
+
+// Make it available globally
+window.authManager = authManager;
