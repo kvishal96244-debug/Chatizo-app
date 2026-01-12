@@ -1,455 +1,459 @@
-// Game Manager for Chatizo
-
 class GameManager {
     constructor() {
-        this.activeGames = new Map();
-        this.availableGames = [
-            {
-                id: 'math',
-                name: 'Math Challenge',
-                icon: 'fas fa-calculator',
-                description: 'Test your math skills with quick calculations',
-                minPlayers: 1,
-                maxPlayers: 4,
-                color: '#ff6b6b'
-            },
-            {
-                id: 'trivia',
-                name: 'Quick Trivia',
-                icon: 'fas fa-brain',
-                description: 'Answer fun trivia questions',
-                minPlayers: 2,
-                maxPlayers: 4,
-                color: '#4ecdc4'
-            },
-            {
-                id: 'flirt',
-                name: 'Romantic Quiz',
-                icon: 'fas fa-heart',
-                description: 'Romantic and flirty questions game',
-                minPlayers: 2,
-                maxPlayers: 2,
-                color: '#ff9ff3'
-            },
-            {
-                id: 'truth',
-                name: 'Truth or Dare',
-                icon: 'fas fa-question-circle',
-                description: 'Classic truth or dare game',
-                minPlayers: 2,
-                maxPlayers: 6,
-                color: '#54a0ff'
-            },
-            {
-                id: 'word',
-                name: 'Word Chain',
-                icon: 'fas fa-language',
-                description: 'Create chains of words',
-                minPlayers: 2,
-                maxPlayers: 4,
-                color: '#5f27cd'
-            }
-        ];
+        this.currentGame = null;
+        this.gameActive = false;
+        this.timer = null;
+        this.timeLeft = 60;
+        this.score = 0;
+        this.currentQuestion = null;
+        this.gameHistory = [];
+        this.init();
     }
     
-    // Create game room
-    createGameRoom(gameId, creator) {
-        const gameConfig = this.availableGames.find(g => g.id === gameId);
-        if (!gameConfig) return null;
+    init() {
+        this.setupEventListeners();
+        this.loadGameHistory();
+    }
+    
+    setupEventListeners() {
+        // Game selection
+        document.querySelectorAll('.play-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const gameType = btn.dataset.game;
+                this.startGame(gameType);
+            });
+        });
         
-        const gameRoom = {
-            id: `${gameId}_${Date.now()}`,
-            gameId: gameId,
-            name: gameConfig.name,
-            creator: creator,
-            players: [creator],
-            status: 'waiting',
-            createdAt: new Date(),
-            maxPlayers: gameConfig.maxPlayers,
-            settings: {
-                genderBalance: true,
-                private: false,
-                difficulty: 'medium'
+        // Close game
+        document.getElementById('close-game').addEventListener('click', () => {
+            this.endGame();
+        });
+        
+        // Game controls
+        document.getElementById('hint-btn').addEventListener('click', () => {
+            this.showHint();
+        });
+        
+        document.getElementById('skip-btn').addEventListener('click', () => {
+            this.skipQuestion();
+        });
+        
+        document.getElementById('next-btn').addEventListener('click', () => {
+            this.nextQuestion();
+        });
+        
+        // Difficulty change
+        document.getElementById('difficulty').addEventListener('change', (e) => {
+            if (this.gameActive) {
+                this.updateDifficulty(e.target.value);
             }
+        });
+    }
+    
+    startGame(gameType) {
+        this.currentGame = gameType;
+        this.gameActive = true;
+        this.score = 0;
+        
+        // Set time based on game type
+        switch(gameType) {
+            case 'quick-math':
+                this.timeLeft = 60;
+                break;
+            case 'memory':
+                this.timeLeft = 45;
+                break;
+            case 'speed':
+                this.timeLeft = 90;
+                break;
+            default:
+                this.timeLeft = 120;
+        }
+        
+        // Update UI
+        document.getElementById('active-game-area').classList.remove('hidden');
+        document.querySelector('.games-container').classList.add('hidden');
+        
+        // Set game title
+        const titles = {
+            'quick-math': 'Quick Math',
+            'puzzle': 'Math Puzzle',
+            'memory': 'Memory Math',
+            'speed': 'Speed Challenge'
         };
         
-        // Add AI player if needed for gender balance
-        this.ensureGenderBalance(gameRoom);
+        document.getElementById('current-game-title').textContent = titles[gameType];
+        document.getElementById('timer').textContent = this.timeLeft;
+        document.getElementById('game-score').querySelector('span').textContent = this.score;
         
-        this.activeGames.set(gameRoom.id, gameRoom);
-        this.updateRoomDisplay();
+        // Start timer
+        this.startTimer();
         
-        return gameRoom;
+        // Generate first question
+        this.generateQuestion();
+        
+        // Play sound
+        this.playSound('click');
     }
     
-    // Ensure gender balance in game rooms
-    ensureGenderBalance(gameRoom) {
-        if (!gameRoom.settings.genderBalance) return;
+    startTimer() {
+        if (this.timer) clearInterval(this.timer);
         
-        const players = gameRoom.players;
-        if (players.length === 1) {
-            // For single player, add AI of opposite gender
-            const aiGender = players[0].gender === 'male' ? 'female' : 'male';
-            const aiPlayer = {
-                id: 'ai_' + Date.now(),
-                name: aiGender === 'female' ? 'Priya' : 'Rohan',
-                gender: aiGender,
-                isAI: true
-            };
-            gameRoom.players.push(aiPlayer);
-        } else if (players.length === 2 && players[0].gender === players[1].gender) {
-            // For same gender pair, add AI of opposite gender
-            const oppositeGender = players[0].gender === 'male' ? 'female' : 'male';
-            const aiPlayer = {
-                id: 'ai_' + Date.now(),
-                name: oppositeGender === 'female' ? 'Sneha' : 'Amit',
-                gender: oppositeGender,
-                isAI: true
-            };
-            gameRoom.players.push(aiPlayer);
-        }
+        this.timer = setInterval(() => {
+            this.timeLeft--;
+            document.getElementById('timer').textContent = this.timeLeft;
+            
+            if (this.timeLeft <= 10) {
+                document.getElementById('timer').style.color = '#ff416c';
+            }
+            
+            if (this.timeLeft <= 0) {
+                this.endGame();
+            }
+        }, 1000);
     }
     
-    // Join game room
-    joinGameRoom(roomId, player) {
-        const gameRoom = this.activeGames.get(roomId);
-        if (!gameRoom || gameRoom.status !== 'waiting') return false;
+    generateQuestion() {
+        const difficulty = document.getElementById('difficulty').value;
+        this.currentQuestion = this.createQuestion(difficulty);
         
-        if (gameRoom.players.length >= gameRoom.maxPlayers) return false;
+        document.getElementById('game-question').innerHTML = `<h1>${this.currentQuestion.question}</h1>`;
         
-        // Check if player already in room
-        if (gameRoom.players.find(p => p.id === player.id)) return false;
+        // Generate options
+        const optionsContainer = document.getElementById('game-options');
+        optionsContainer.innerHTML = '';
         
-        gameRoom.players.push(player);
+        this.currentQuestion.options.forEach((option, index) => {
+            const button = document.createElement('button');
+            button.className = 'option-btn';
+            button.textContent = option;
+            button.addEventListener('click', () => this.checkAnswer(option));
+            optionsContainer.appendChild(button);
+        });
         
-        // Ensure gender balance
-        this.ensureGenderBalance(gameRoom);
+        // Reset UI
+        document.getElementById('feedback-text').textContent = '';
+        document.getElementById('next-btn').classList.add('hidden');
         
-        // Start game if enough players
-        if (gameRoom.players.length >= gameRoom.maxPlayers) {
-            this.startGame(roomId);
-        } else {
-            this.broadcastRoomUpdate(roomId, `${player.name} joined the game!`);
-        }
-        
-        this.updateRoomDisplay();
-        return true;
+        // Update hint availability
+        this.updateHintButton();
     }
     
-    // Start game
-    startGame(roomId) {
-        const gameRoom = this.activeGames.get(roomId);
-        if (!gameRoom) return;
+    createQuestion(difficulty) {
+        let num1, num2, operation, answer;
         
-        gameRoom.status = 'active';
-        gameRoom.startedAt = new Date();
-        
-        // Start the specific game
-        this.initializeGame(gameRoom);
-        
-        this.broadcastRoomUpdate(roomId, `🎮 Game "${gameRoom.name}" has started! 🎮`);
-        this.updateRoomDisplay();
-    }
-    
-    // Initialize specific game
-    initializeGame(gameRoom) {
-        switch(gameRoom.gameId) {
-            case 'math':
-                // Math game is handled separately
+        switch(difficulty) {
+            case 'easy':
+                num1 = Math.floor(Math.random() * 20) + 1;
+                num2 = Math.floor(Math.random() * 20) + 1;
                 break;
-            case 'flirt':
-                this.startFlirtGame(gameRoom);
+            case 'medium':
+                num1 = Math.floor(Math.random() * 50) + 1;
+                num2 = Math.floor(Math.random() * 50) + 1;
                 break;
-            case 'trivia':
-                this.startTriviaGame(gameRoom);
+            case 'hard':
+                num1 = Math.floor(Math.random() * 100) + 1;
+                num2 = Math.floor(Math.random() * 100) + 1;
                 break;
-            // Add other games here
+            case 'expert':
+                num1 = Math.floor(Math.random() * 200) + 1;
+                num2 = Math.floor(Math.random() * 200) + 1;
+                break;
         }
-    }
-    
-    // Start flirt game
-    startFlirtGame(gameRoom) {
-        const questions = [
-            "What's your idea of a perfect romantic date? 💕",
-            "Kya aap love at first sight mein believe karte hain? ❤️",
-            "What's the most romantic thing you've ever done? 🌹",
-            "Tumhare hisaab se pyaar ki sabse badi nishani kya hai? 💖",
-            "What makes you feel truly loved and appreciated? 😊",
-            "Kya aapko lagta hai ki soulmates exist karte hain? ✨",
-            "What's your favorite love song and why? 🎵",
-            "Tumhari dream partner ki sabse important quality kya hai? 💫",
-            "What's the sweetest thing someone has ever said to you? 🥰",
-            "Kya aap long distance relationship mein vishwas rakhte hain? 💌"
-        ];
         
-        let currentQuestion = 0;
+        const operations = ['+', '-', '×', '÷'];
+        const opIndex = Math.floor(Math.random() * operations.length);
+        operation = operations[opIndex];
         
-        // Send first question
-        this.sendToRoom(gameRoom, `💖 Romantic Quiz Started! 💖\n\nQuestion 1: ${questions[currentQuestion]}`);
+        switch(operation) {
+            case '+':
+                answer = num1 + num2;
+                break;
+            case '-':
+                // Ensure positive result
+                if (num1 < num2) [num1, num2] = [num2, num1];
+                answer = num1 - num2;
+                break;
+            case '×':
+                // For easier difficulties, use smaller numbers
+                if (difficulty === 'easy') {
+                    num1 = Math.floor(Math.random() * 10) + 1;
+                    num2 = Math.floor(Math.random() * 10) + 1;
+                }
+                answer = num1 * num2;
+                break;
+            case '÷':
+                // Ensure integer division
+                num2 = Math.floor(Math.random() * 10) + 1;
+                num1 = num2 * (Math.floor(Math.random() * 10) + 1);
+                answer = num1 / num2;
+                break;
+        }
         
-        // Set up question timer
-        gameRoom.questionTimer = setInterval(() => {
-            currentQuestion++;
-            if (currentQuestion < questions.length) {
-                this.sendToRoom(gameRoom, `Question ${currentQuestion + 1}: ${questions[currentQuestion]}`);
+        // Generate wrong options
+        const options = [answer];
+        while (options.length < 4) {
+            let wrongAnswer;
+            const variance = Math.floor(Math.random() * 10) + 1;
+            
+            if (Math.random() > 0.5) {
+                wrongAnswer = answer + variance;
             } else {
-                clearInterval(gameRoom.questionTimer);
-                this.endGame(gameRoom.id);
+                wrongAnswer = Math.max(1, answer - variance);
             }
-        }, 30000); // 30 seconds per question
+            
+            if (!options.includes(wrongAnswer)) {
+                options.push(wrongAnswer);
+            }
+        }
+        
+        // Shuffle options
+        options.sort(() => Math.random() - 0.5);
+        
+        return {
+            question: `${num1} ${operation} ${num2} = ?`,
+            answer: answer,
+            options: options,
+            difficulty: difficulty,
+            operation: operation
+        };
     }
     
-    // Start trivia game
-    startTriviaGame(gameRoom) {
-        const triviaQuestions = [
-            {
-                question: "What is the capital of France?",
-                options: ["London", "Berlin", "Paris", "Madrid"],
-                answer: 2
-            },
-            {
-                question: "Kis planet ko 'Red Planet' kehte hain?",
-                options: ["Venus", "Mars", "Jupiter", "Saturn"],
-                answer: 1
-            },
-            {
-                question: "Who painted the Mona Lisa?",
-                options: ["Van Gogh", "Picasso", "Da Vinci", "Rembrandt"],
-                answer: 2
-            },
-            {
-                question: "Computer ka father kis ko mana jata hai?",
-                options: ["Bill Gates", "Steve Jobs", "Charles Babbage", "Alan Turing"],
-                answer: 2
+    checkAnswer(selectedAnswer) {
+        const isCorrect = parseFloat(selectedAnswer) === this.currentQuestion.answer;
+        
+        // Disable all buttons
+        document.querySelectorAll('.option-btn').forEach(btn => {
+            btn.disabled = true;
+            if (parseFloat(btn.textContent) === this.currentQuestion.answer) {
+                btn.classList.add('correct');
+            } else if (parseFloat(btn.textContent) === parseFloat(selectedAnswer) && !isCorrect) {
+                btn.classList.add('wrong');
             }
+        });
+        
+        // Update score
+        if (isCorrect) {
+            this.score += this.getPointsForDifficulty();
+            this.playSound('correct');
+            document.getElementById('feedback-text').textContent = this.getRandomCorrectMessage();
+            document.getElementById('feedback-text').style.color = '#00b09b';
+        } else {
+            this.playSound('wrong');
+            document.getElementById('feedback-text').textContent = this.getRandomWrongMessage();
+            document.getElementById('feedback-text').style.color = '#ff416c';
+        }
+        
+        // Update score display
+        document.getElementById('game-score').querySelector('span').textContent = this.score;
+        
+        // Show next button
+        document.getElementById('next-btn').classList.remove('hidden');
+        
+        // Save to history
+        this.saveQuestionResult(isCorrect);
+    }
+    
+    getPointsForDifficulty() {
+        const difficulties = {
+            'easy': 5,
+            'medium': 10,
+            'hard': 20,
+            'expert': 40
+        };
+        return difficulties[this.currentQuestion.difficulty] || 10;
+    }
+    
+    getRandomCorrectMessage() {
+        const messages = [
+            "Shabaash! Bilkul sahi! 🎉",
+            "Waah! Tum to maths ke king/queen ho! 👑",
+            "Excellent! Aise hi chalta raho! ✨",
+            "Bohot badhiya! Tumhari samajh bohot tej hai! 💡",
+            "Perfect answer! Tum to genius ho! 🧠"
         ];
-        
-        gameRoom.currentTrivia = 0;
-        gameRoom.triviaScores = {};
-        gameRoom.players.forEach(p => gameRoom.triviaScores[p.id] = 0);
-        
-        this.nextTriviaQuestion(gameRoom);
+        return messages[Math.floor(Math.random() * messages.length)];
     }
     
-    // Next trivia question
-    nextTriviaQuestion(gameRoom) {
-        if (gameRoom.currentTrivia >= triviaQuestions.length) {
-            this.endGame(gameRoom.id);
+    getRandomWrongMessage() {
+        const messages = [
+            "Koi baat nahi, try again! 😊",
+            "Chhodo, agla sahi karenge! 💪",
+            "Thoda soch ke batana! 🤔",
+            "Almost there! Try once more! ✨",
+            "Don't worry, even Einstein made mistakes! 😄"
+        ];
+        return messages[Math.floor(Math.random() * messages.length)];
+    }
+    
+    showHint() {
+        if (!this.currentQuestion) return;
+        
+        const hintCost = 5;
+        const user = JSON.parse(localStorage.getItem('mathGameUser'));
+        
+        if (user.coins < hintCost) {
+            window.showNotification("Not enough coins for hint!", "error");
             return;
         }
         
-        const trivia = triviaQuestions[gameRoom.currentTrivia];
-        let message = `🧠 Trivia Question ${gameRoom.currentTrivia + 1}/${triviaQuestions.length}:\n`;
-        message += `${trivia.question}\n\n`;
-        message += `Options:\n`;
-        trivia.options.forEach((opt, idx) => {
-            message += `${idx + 1}. ${opt}\n`;
-        });
-        message += `\nReply with !answer [number]`;
+        // Deduct coins
+        user.coins -= hintCost;
+        localStorage.setItem('mathGameUser', JSON.stringify(user));
+        window.authManager.updateUI();
         
-        this.sendToRoom(gameRoom, message);
+        // Show hint
+        let hint = "";
+        const answer = this.currentQuestion.answer;
         
-        gameRoom.currentTrivia++;
-        gameRoom.currentAnswer = trivia.answer;
-        
-        // Set timeout for answer
-        gameRoom.triviaTimer = setTimeout(() => {
-            this.revealTriviaAnswer(gameRoom, trivia);
-        }, 30000);
-    }
-    
-    // Reveal trivia answer
-    revealTriviaAnswer(gameRoom, trivia) {
-        this.sendToRoom(gameRoom, `⏰ Time's up!\nCorrect answer: ${trivia.options[trivia.answer]} (Option ${trivia.answer + 1})\n\nNext question coming up...`);
-        
-        setTimeout(() => {
-            this.nextTriviaQuestion(gameRoom);
-        }, 5000);
-    }
-    
-    // End game
-    endGame(roomId) {
-        const gameRoom = this.activeGames.get(roomId);
-        if (!gameRoom) return;
-        
-        gameRoom.status = 'completed';
-        gameRoom.completedAt = new Date();
-        
-        // Determine winner
-        let winner = gameRoom.players[0];
-        if (gameRoom.triviaScores) {
-            let highestScore = -1;
-            gameRoom.players.forEach(player => {
-                if (gameRoom.triviaScores[player.id] > highestScore) {
-                    highestScore = gameRoom.triviaScores[player.id];
-                    winner = player;
-                }
-            });
+        switch(this.currentQuestion.operation) {
+            case '+':
+                hint = `Hint: Try adding the numbers carefully. Answer is around ${answer}`;
+                break;
+            case '-':
+                hint = `Hint: Subtract smaller from larger. Answer is around ${answer}`;
+                break;
+            case '×':
+                hint = `Hint: Multiply step by step. Answer ends with ${answer % 10}`;
+                break;
+            case '÷':
+                hint = `Hint: Divide completely. Answer is ${answer}`;
+                break;
         }
         
-        this.sendToRoom(gameRoom, `🏆 Game Over! 🏆\n\n🎖️ Winner: ${winner.name}!\n\nThanks for playing! 👏`);
+        document.getElementById('feedback-text').textContent = hint;
+        document.getElementById('feedback-text').style.color = '#ffa62e';
         
-        // Remove game after delay
-        setTimeout(() => {
-            this.activeGames.delete(roomId);
-            this.updateRoomDisplay();
-        }, 60000);
+        // Disable hint button
+        document.getElementById('hint-btn').disabled = true;
+        
+        window.showNotification(`Hint used! ${hintCost} coins deducted`, "info");
     }
     
-    // Send message to room
-    sendToRoom(gameRoom, message) {
-        addMessage({
-            sender: gameRoom.name,
-            text: message,
-            type: 'game',
-            time: new Date()
-        });
-    }
-    
-    // Broadcast room update
-    broadcastRoomUpdate(roomId, message) {
-        const gameRoom = this.activeGames.get(roomId);
-        if (gameRoom) {
-            this.sendToRoom(gameRoom, message);
+    updateHintButton() {
+        const user = JSON.parse(localStorage.getItem('mathGameUser'));
+        const hintBtn = document.getElementById('hint-btn');
+        
+        if (user && user.coins >= 5) {
+            hintBtn.disabled = false;
+            hintBtn.innerHTML = '<i class="fas fa-lightbulb"></i> Hint (5 coins)';
+        } else {
+            hintBtn.disabled = true;
+            hintBtn.innerHTML = '<i class="fas fa-lightbulb"></i> No coins for hint';
         }
     }
     
-    // Update room display
-    updateRoomDisplay() {
-        const roomList = document.getElementById('roomList');
-        roomList.innerHTML = '';
-        
-        this.activeGames.forEach((gameRoom, id) => {
-            const roomElement = document.createElement('div');
-            roomElement.className = 'room-item';
-            roomElement.onclick = () => this.showRoomDetails(id);
-            
-            const playerCount = gameRoom.players.length;
-            const maxPlayers = gameRoom.maxPlayers;
-            const statusColor = gameRoom.status === 'waiting' ? '#00b894' : 
-                               gameRoom.status === 'active' ? '#fdcb6e' : '#d63031';
-            
-            roomElement.innerHTML = `
-                <div class="room-icon" style="background: ${this.getGameColor(gameRoom.gameId)}">
-                    <i class="${this.getGameIcon(gameRoom.gameId)}"></i>
-                </div>
-                <div class="room-info">
-                    <strong>${gameRoom.name}</strong>
-                    <div class="room-details">
-                        <span>👤 ${playerCount}/${maxPlayers}</span>
-                        <span style="color: ${statusColor}">● ${gameRoom.status}</span>
-                    </div>
-                </div>
-            `;
-            
-            roomList.appendChild(roomElement);
-        });
-    }
-    
-    // Get game color
-    getGameColor(gameId) {
-        const game = this.availableGames.find(g => g.id === gameId);
-        return game ? game.color : '#636e72';
-    }
-    
-    // Get game icon
-    getGameIcon(gameId) {
-        const game = this.availableGames.find(g => g.id === gameId);
-        return game ? game.icon : 'fas fa-gamepad';
-    }
-    
-    // Show room details
-    showRoomDetails(roomId) {
-        const gameRoom = this.activeGames.get(roomId);
-        if (!gameRoom) return;
-        
-        let playersList = '';
-        gameRoom.players.forEach(player => {
-            playersList += `👤 ${player.name} (${player.gender}) ${player.isAI ? '(AI)' : ''}\n`;
-        });
-        
-        const message = `🎮 ${gameRoom.name}\n\n` +
-                       `Status: ${gameRoom.status}\n` +
-                       `Players:\n${playersList}\n` +
-                       `Created: ${gameRoom.createdAt.toLocaleTimeString()}\n\n` +
-                       `Type !join ${roomId} to join this game`;
-        
-        addMessage({
-            sender: 'Game Room',
-            text: message,
-            type: 'system',
-            time: new Date()
-        });
-    }
-}
-
-// Global game manager instance
-let gameManager = null;
-
-// Initialize game manager
-function initializeGameManager() {
-    gameManager = new GameManager();
-    
-    // Create sample game rooms
-    setTimeout(() => {
-        if (currentUser) {
-            gameManager.createGameRoom('flirt', currentUser);
-            gameManager.createGameRoom('trivia', currentUser);
+    skipQuestion() {
+        if (this.currentQuestion) {
+            this.saveQuestionResult(false);
         }
-    }, 5000);
-}
-
-// Join specific game
-function joinSpecificGame(gameId) {
-    if (!gameManager || !currentUser) return;
+        this.generateQuestion();
+    }
     
-    const gameRoom = gameManager.createGameRoom(gameId, currentUser);
-    if (gameRoom) {
-        addMessage({
-            sender: 'System',
-            text: `Created ${gameRoom.name}! Waiting for players...`,
-            type: 'system',
-            time: new Date()
+    nextQuestion() {
+        this.generateQuestion();
+    }
+    
+    updateDifficulty(newDifficulty) {
+        if (this.gameActive) {
+            window.showNotification(`Difficulty changed to ${newDifficulty}`, "info");
+        }
+    }
+    
+    endGame() {
+        clearInterval(this.timer);
+        this.gameActive = false;
+        
+        // Save game results
+        this.saveGameResult();
+        
+        // Update user stats
+        if (window.authManager && window.authManager.currentUser) {
+            window.authManager.updateStats(
+                this.currentGame,
+                this.score,
+                60 - this.timeLeft,
+                this.gameHistory.filter(q => q.correct).length
+            );
+        }
+        
+        // Show final score
+        window.showNotification(
+            `Game Over! Your score: ${this.score} points. You earned ${Math.floor(this.score / 10)} coins!`,
+            "success"
+        );
+        
+        // Reset UI
+        document.getElementById('active-game-area').classList.add('hidden');
+        document.querySelector('.games-container').classList.remove('hidden');
+        
+        // Play game over sound
+        this.playSound('click');
+    }
+    
+    saveQuestionResult(isCorrect) {
+        this.gameHistory.push({
+            question: this.currentQuestion.question,
+            answer: this.currentQuestion.answer,
+            userAnswer: document.querySelector('.option-btn.wrong') ? 
+                       parseFloat(document.querySelector('.option-btn.wrong').textContent) : this.currentQuestion.answer,
+            correct: isCorrect,
+            timestamp: new Date().toISOString(),
+            difficulty: this.currentQuestion.difficulty
         });
     }
-}
-
-// Show game rooms
-function showGameRooms() {
-    gameManager.updateRoomDisplay();
-    document.getElementById('gameModal').classList.remove('hidden');
-}
-
-// Close modal
-function closeModal() {
-    document.getElementById('gameModal').classList.add('hidden');
-}
-
-// Create new game room
-function createGameRoom() {
-    const modal = document.getElementById('gameModal');
-    const gameRoomsDiv = document.getElementById('gameRooms');
     
-    gameRoomsDiv.innerHTML = '';
-    
-    gameManager.availableGames.forEach(game => {
-        const gameElement = document.createElement('div');
-        gameElement.className = 'game-room';
-        gameElement.style.borderLeft = `5px solid ${game.color}`;
-        gameElement.onclick = () => {
-            joinSpecificGame(game.id);
-            closeModal();
+    saveGameResult() {
+        const gameResult = {
+            gameType: this.currentGame,
+            score: this.score,
+            timeSpent: 60 - this.timeLeft,
+            totalQuestions: this.gameHistory.length,
+            correctAnswers: this.gameHistory.filter(q => q.correct).length,
+            difficulty: document.getElementById('difficulty').value,
+            timestamp: new Date().toISOString()
         };
         
-        gameElement.innerHTML = `
-            <h4><i class="${game.icon}"></i> ${game.name}</h4>
-            <p>${game.description}</p>
-            <div class="room-info">
-                <span>👤 ${game.minPlayers}-${game.maxPlayers} players</span>
-                <span>⭐ ${game.id === 'math' ? 'Quick Game' : 'Social Game'}</span>
-            </div>
-        `;
+        // Save to localStorage
+        let allResults = JSON.parse(localStorage.getItem('gameResults') || '[]');
+        allResults.push(gameResult);
         
-        gameRoomsDiv.appendChild(gameElement);
-    });
+        // Keep only last 50 games
+        if (allResults.length > 50) {
+            allResults = allResults.slice(-50);
+        }
+        
+        localStorage.setItem('gameResults', JSON.stringify(allResults));
+        
+        // Also save to storage manager
+        if (window.storageManager) {
+            window.storageManager.saveGameStats({
+                gamesPlayed: 1,
+                correctAnswers: gameResult.correctAnswers,
+                timePlayed: gameResult.timeSpent,
+                score: gameResult.score
+            });
+        }
+    }
+    
+    loadGameHistory() {
+        const savedResults = localStorage.getItem('gameResults');
+        if (savedResults) {
+            this.allGameHistory = JSON.parse(savedResults);
+        } else {
+            this.allGameHistory = [];
+        }
+    }
+    
+    playSound(type) {
+        const audio = document.getElementById(`${type}-sound`);
+        if (audio) {
+            audio.currentTime = 0;
+            audio.play().catch(e => console.log("Audio play failed:", e));
+        }
+    }
 }
+
+// Initialize game manager
+const gameManager = new GameManager();
+window.gameManager = gameManager;
