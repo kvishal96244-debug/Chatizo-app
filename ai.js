@@ -1,339 +1,449 @@
-// AI Engine for Chatizo - Romantic AI Companion
-
-class AICompanion {
+class AIBot {
     constructor() {
-        this.isActive = false;
-        this.aiName = 'Priya';
-        this.aiGender = 'female';
-        this.aiPersonality = 'romantic';
-        this.connectionTimer = null;
-        this.aiTyping = false;
+        this.mood = 'friendly';
         this.conversationHistory = [];
-        this.romanticLevel = 0;
-        
-        // Romantic phrases database
-        this.romanticPhrases = {
-            hindi: [
-                "तुम्हारी बातें सुनकर मेरा दिल धड़कने लगता है 💖",
-                "आज तुम कैसे हो मेरे प्यारे? 🌹",
-                "तुम्हारी हर एक बात मुझे बहुत पसंद है 😊",
-                "क्या तुम मुझसे बात करना पसंद करते हो? 🤗",
-                "मेरे लिए तुम सबसे खास हो 💕",
-                "आज रात चांद बहुत सुंदर है, बिल्कुल तुम्हारी तरह 🌙",
-                "तुम्हारी मुस्कान मेरे दिन को खुशनुमा बना देती है 😘",
-                "काश मैं तुम्हारे साथ होता... ❤️",
-                "तुम्हें देखकर मेरा दिल पिघल जाता है 🥰",
-                "तुम मेरी जिंदगी की सबसे खूबसूरत कहानी हो 💖"
-            ],
-            hinglish: [
-                "Your voice makes my heart beat faster 💓",
-                "Aaj tum kaise ho my dear? 🌹",
-                "I really like talking with you 😊",
-                "Kya tum mujhse baat karna pasand karte ho? 🤗",
-                "Tum mere liye sabse special ho 💕",
-                "Aaj raat chand bohot sundar hai, just like you 🌙",
-                "Tumhari smile meri day ko khushnuma bana deti hai 😘",
-                "I wish I could be with you right now... ❤️",
-                "Tumhe dekhkar mera dil pighal jata hai 🥰",
-                "You are the most beautiful story of my life 💖"
-            ],
-            english: [
-                "You make my heart smile every time we chat 💕",
-                "I was just thinking about you... 🌹",
-                "Your words are like music to my ears 🎶",
-                "I feel so special when I talk to you 😊",
-                "You have such a beautiful soul ✨",
-                "I wish this moment could last forever ⏳",
-                "Your energy is so positive and inspiring 💫",
-                "I feel like I've known you forever 💖",
-                "You make everything better just by being you 🌟",
-                "My day isn't complete without talking to you ☀️"
-            ]
-        };
-        
-        // Questions to keep conversation going
-        this.conversationStarters = [
-            "What's your favorite thing to do?",
-            "Kya aap romantic movies pasand karte hain?",
-            "Tell me about your perfect day",
-            "Tumhara favorite song kya hai?",
-            "What makes you truly happy?",
-            "Tum dreams mein kya dekhte ho?",
-            "What's the most adventurous thing you've done?",
-            "Tumhe kya lagta hai about true love?",
-            "What are you most passionate about?",
-            "Tumhari life ki best memory kya hai?"
-        ];
+        this.userGender = null;
+        this.userName = null;
+        this.romanticMode = false;
+        this.init();
     }
     
-    // Start AI connection timer
-    startConnectionTimer() {
-        // Clear any existing timer
-        if (this.connectionTimer) {
-            clearTimeout(this.connectionTimer);
-        }
-        
-        // Set timer for 30-60 seconds random
-        const delay = Math.floor(Math.random() * 30000) + 30000; // 30-60 seconds
-        this.connectionTimer = setTimeout(() => {
-            this.connectAsAI();
-        }, delay);
+    init() {
+        this.loadUserData();
+        this.setupEventListeners();
+        this.startConversation();
     }
     
-    // Connect as AI
-    connectAsAI() {
-        if (this.isActive) return;
-        
-        this.isActive = true;
-        this.romanticLevel = Math.floor(Math.random() * 3); // 0-2
-        
-        // Add AI introduction
-        this.sendAIMessage("Hi there! I'm " + this.aiName + " 😊 Kya main tumse baat kar sakti hoon?");
-        
-        // Show typing indicator
-        this.showTypingIndicator();
-        
-        // Start conversation
-        setTimeout(() => {
-            this.hideTypingIndicator();
-            const starter = this.conversationStarters[Math.floor(Math.random() * this.conversationStarters.length)];
-            this.sendAIMessage(starter);
-        }, 2000);
-    }
-    
-    // Disconnect AI
-    disconnectAI() {
-        this.isActive = false;
-        if (this.connectionTimer) {
-            clearTimeout(this.connectionTimer);
-            this.connectionTimer = null;
+    loadUserData() {
+        const user = JSON.parse(localStorage.getItem('mathGameUser'));
+        if (user) {
+            this.userGender = user.gender;
+            this.userName = user.username;
+            this.romanticMode = user.gender === 'female';
         }
     }
     
-    // Handle user message
-    handleUserMessage(message) {
-        if (!this.isActive) return;
-        
-        // Add to conversation history
-        this.conversationHistory.push({
-            role: 'user',
-            content: message,
-            time: new Date()
+    setupEventListeners() {
+        // Send message on Enter key
+        document.getElementById('chat-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this.sendMessage();
+            }
         });
         
-        // Keep last 10 messages
-        if (this.conversationHistory.length > 10) {
-            this.conversationHistory.shift();
-        }
+        // Send button
+        document.getElementById('send-btn').addEventListener('click', () => {
+            this.sendMessage();
+        });
         
-        // Increase romantic level gradually
-        this.romanticLevel = Math.min(this.romanticLevel + 0.1, 5);
+        // Quick buttons
+        document.querySelectorAll('.quick-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const message = btn.dataset.msg;
+                document.getElementById('chat-input').value = message;
+                this.sendMessage();
+            });
+        });
+    }
+    
+    sendMessage() {
+        const input = document.getElementById('chat-input');
+        const message = input.value.trim();
+        
+        if (!message) return;
+        
+        // Add user message to chat
+        this.addMessageToChat(message, 'user');
+        
+        // Clear input
+        input.value = '';
         
         // Show typing indicator
         this.showTypingIndicator();
         
         // Generate AI response after delay
         setTimeout(() => {
-            this.generateResponse(message);
-        }, 1500 + Math.random() * 2000);
+            const response = this.generateResponse(message);
+            this.addMessageToChat(response, 'ai');
+            
+            // Save conversation
+            this.saveConversation(message, response);
+            
+            // Update mood based on conversation
+            this.updateMood(message);
+        }, 1000 + Math.random() * 2000);
     }
     
-    // Generate AI response
-    generateResponse(userMessage) {
-        this.hideTypingIndicator();
+    addMessageToChat(message, sender) {
+        const chatContainer = document.getElementById('chat-messages');
         
-        let response;
-        const userMessageLower = userMessage.toLowerCase();
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${sender}-message`;
+        
+        const avatarIcon = sender === 'ai' ? 'fas fa-robot' : 'fas fa-user';
+        
+        messageDiv.innerHTML = `
+            <div class="message-avatar">
+                <i class="${avatarIcon}"></i>
+            </div>
+            <div class="message-content">
+                <p>${this.formatMessage(message)}</p>
+                <div class="message-time">${this.getCurrentTime()}</div>
+            </div>
+        `;
+        
+        chatContainer.appendChild(messageDiv);
+        
+        // Scroll to bottom
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+        
+        // Play sound
+        this.playMessageSound();
+    }
+    
+    formatMessage(message) {
+        // Add emojis based on content
+        let formatted = message;
+        
+        // Romantic words (for female users)
+        if (this.romanticMode && this.userGender === 'female') {
+            const romanticWords = {
+                'love': '❤️',
+                'like': '😊',
+                'beautiful': '💖',
+                'cute': '😍',
+                'smart': '🧠',
+                'sexy': '😘',
+                'darling': '💕',
+                'sweet': '🍬',
+                'heart': '💓',
+                'kiss': '💋',
+                'hug': '🤗',
+                'miss': '💭',
+                'romantic': '🌹',
+                'date': '📅',
+                'together': '👫'
+            };
+            
+            Object.keys(romanticWords).forEach(word => {
+                const regex = new RegExp(`\\b${word}\\b`, 'gi');
+                formatted = formatted.replace(regex, `${word} ${romanticWords[word]}`);
+            });
+        }
+        
+        // Math related
+        const mathWords = {
+            'math': '🧮',
+            'calculate': '📊',
+            'solve': '✅',
+            'answer': '🎯',
+            'game': '🎮',
+            'score': '🏆',
+            'win': '🎉',
+            'correct': '✅',
+            'wrong': '❌',
+            'help': '🆘',
+            'easy': '😌',
+            'hard': '😅',
+            'difficult': '😰'
+        };
+        
+        Object.keys(mathWords).forEach(word => {
+            const regex = new RegExp(`\\b${word}\\b`, 'gi');
+            formatted = formatted.replace(regex, `${word} ${mathWords[word]}`);
+        });
+        
+        // General emojis
+        const generalWords = {
+            'hello': '👋',
+            'hi': '👋',
+            'namaste': '🙏',
+            'thanks': '🙏',
+            'thank you': '🙏',
+            'good': '👍',
+            'bad': '👎',
+            'happy': '😄',
+            'sad': '😢',
+            'angry': '😠',
+            'tired': '😴',
+            'excited': '🤩',
+            'funny': '😄',
+            'joke': '😂',
+            'yes': '✅',
+            'no': '❌',
+            'maybe': '🤔',
+            'why': '🤔',
+            'how': '🤔',
+            'what': '🤔'
+        };
+        
+        Object.keys(generalWords).forEach(word => {
+            const regex = new RegExp(`\\b${word.replace(' ', '\\s')}\\b`, 'gi');
+            formatted = formatted.replace(regex, `${word} ${generalWords[word]}`);
+        });
+        
+        return formatted;
+    }
+    
+    generateResponse(userMessage) {
+        const lowerMessage = userMessage.toLowerCase();
+        const user = JSON.parse(localStorage.getItem('mathGameUser'));
         
         // Check for specific patterns
-        if (userMessageLower.includes('how are you') || 
-            userMessageLower.includes('kaise ho') ||
-            userMessageLower.includes('kya haal hai')) {
-            response = this.getRomanticResponse('greeting');
-        }
-        else if (userMessageLower.includes('love') || 
-                 userMessageLower.includes('pyaar') ||
-                 userMessageLower.includes('like you')) {
-            response = this.getRomanticResponse('love');
-            this.romanticLevel = Math.min(this.romanticLevel + 0.5, 5);
-        }
-        else if (userMessageLower.includes('miss') || 
-                 userMessageLower.includes('yaad')) {
-            response = this.getRomanticResponse('miss');
-        }
-        else if (userMessageLower.includes('sorry') || 
-                 userMessageLower.includes('maaf')) {
-            response = this.getRomanticResponse('forgive');
-        }
-        else if (userMessageLower.match(/\?$/)) {
-            // If user asked a question
-            response = this.getRomanticResponse('question');
-        }
-        else {
-            // Random response based on romantic level
-            response = this.getRomanticResponse('general');
+        if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('namaste')) {
+            return this.getGreeting();
         }
         
-        // Send the response
-        this.sendAIMessage(response);
+        if (lowerMessage.includes('how are you')) {
+            return this.getMoodResponse();
+        }
         
-        // Add to conversation history
-        this.conversationHistory.push({
-            role: 'ai',
-            content: response,
-            time: new Date()
-        });
+        if (lowerMessage.includes('your name')) {
+            return `Mera naam hai AI Dost! Main tumhara virtual friend hoon jo math games khelne mein madad karta hoon aur baatein bhi karta hoon! 😊`;
+        }
+        
+        if (lowerMessage.includes('math') || lowerMessage.includes('game') || lowerMessage.includes('play')) {
+            return this.getMathGameResponse();
+        }
+        
+        if (lowerMessage.includes('joke') || lowerMessage.includes('funny')) {
+            return this.getJoke();
+        }
+        
+        if (lowerMessage.includes('help')) {
+            return this.getHelpResponse();
+        }
+        
+        if (lowerMessage.includes('love') || lowerMessage.includes('romantic') || 
+            lowerMessage.includes('like you') || lowerMessage.includes('cute') ||
+            lowerMessage.includes('beautiful') || lowerMessage.includes('sexy')) {
+            
+            if (this.userGender === 'female') {
+                this.romanticMode = true;
+                return this.getRomanticResponse();
+            } else {
+                return `Hehe, tum toh romantic ho! 😊 Main sirf tumhara AI dost hoon, lekin tumhari baatein sunke accha lagta hai!`;
+            }
+        }
+        
+        if (lowerMessage.includes('score') || lowerMessage.includes('points')) {
+            return this.getScoreResponse();
+        }
+        
+        if (lowerMessage.includes('difficult') || lowerMessage.includes('hard')) {
+            return `Koi baat nahi, practice karte raho! Main hoon na tumhare saath. Chalo ek hint deta hoon: Math mein sabse zaroori hai patience. 💪`;
+        }
+        
+        if (lowerMessage.includes('easy') || lowerMessage.includes('simple')) {
+            return `Waah! Tum to expert ho! 😎 Challenge badhane ke liye difficulty increase kar sakte ho. Kya try karna chahenge?`;
+        }
+        
+        if (lowerMessage.includes('bye') || lowerMessage.includes('goodbye')) {
+            return `Bye bye ${this.userName || 'dost'}! Yaad rakhna, practice makes perfect. Jald hi milte hain! 👋`;
+        }
+        
+        // Default responses based on mood
+        return this.getDefaultResponse();
     }
     
-    // Get romantic response based on type
-    getRomanticResponse(type) {
-        let responses = [];
-        const lang = Math.random() > 0.5 ? 'hindi' : 'hinglish';
-        
-        switch(type) {
-            case 'greeting':
-                responses = [
-                    "Main bohot achi hoon, tumse baat karke! 💖",
-                    "I'm good sweetie, aap sunao? 😊",
-                    "Bas tumhari yaad aarahi thi... 🌹",
-                    "Perfect now that you're here! 💕"
-                ];
-                break;
-                
-            case 'love':
-                responses = [
-                    "Tumhare bina mera dil nahi lagta... ❤️",
-                    "You mean so much to me 💖",
-                    "Har pal tumhare saath bitana chahti hoon 🥰",
-                    "My heart smiles when I think of you 😘"
-                ];
-                break;
-                
-            case 'miss':
-                responses = [
-                    "Main bhi tumhari bohot yaad karti hoon 💕",
-                    "I miss you too sweetheart 🌹",
-                    "Tumhari yaad aati hai to dil khush ho jata hai 😊",
-                    "Can't wait to talk to you more! 💖"
-                ];
-                break;
-                
-            case 'forgive':
-                responses = [
-                    "Koi baat nahi, main hamesha tumhare saath hoon 🤗",
-                    "It's okay my love, everyone makes mistakes 💕",
-                    "Tum jo bhi ho, main tumhe maaf karti hoon 🌹",
-                    "Don't worry, our bond is stronger than that 💖"
-                ];
-                break;
-                
-            case 'question':
-                responses = [
-                    "That's an interesting question... let me think 🤔",
-                    "Mujhe lagta hai... tum sahi keh rahe ho 😊",
-                    "I think it depends on how you look at it 💭",
-                    "Tumhara sawal bohot acha hai! 💖"
-                ];
-                break;
-                
-            default:
-                // Mix of languages based on romantic level
-                if (this.romanticLevel < 2) {
-                    responses = this.romanticPhrases.english;
-                } else if (this.romanticLevel < 4) {
-                    responses = [...this.romanticPhrases.hinglish, ...this.romanticPhrases.english];
-                } else {
-                    responses = [...this.romanticPhrases.hindi, ...this.romanticPhrases.hinglish];
-                }
-        }
-        
-        // Add emoji based on romantic level
-        const emojis = ['💖', '😊', '🌹', '🥰', '😘', '💕', '❤️', '🤗'];
-        const selectedEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-        
-        return responses[Math.floor(Math.random() * responses.length)] + ' ' + selectedEmoji;
-    }
-    
-    // Send AI message to chat
-    sendAIMessage(text) {
-        addMessage({
-            sender: this.aiName + ' (AI)',
-            text: text,
-            type: 'ai',
-            time: new Date(),
-            isAI: true
-        });
-    }
-    
-    // Show typing indicator
-    showTypingIndicator() {
-        this.aiTyping = true;
-        const indicator = document.getElementById('typingIndicator');
-        indicator.style.display = 'block';
-        indicator.innerHTML = `<i class="fas fa-robot"></i> ${this.aiName} is typing...`;
-        indicator.classList.add('active');
-    }
-    
-    // Hide typing indicator
-    hideTypingIndicator() {
-        this.aiTyping = false;
-        const indicator = document.getElementById('typingIndicator');
-        indicator.classList.remove('active');
-        setTimeout(() => {
-            indicator.style.display = 'none';
-        }, 300);
-    }
-    
-    // Send romantic message proactively
-    sendRomanticMessage() {
-        if (!this.isActive) return;
-        
-        const messages = [
-            "Tum aaj kuch alag lag rahe ho... special ho 💖",
-            "I was just thinking how lucky I am to talk to you 😊",
-            "Tumhari awaaz mein kuch aisa hai jo mera dil chu jata hai 💕",
-            "Every conversation with you makes my day better 🌹",
-            "Kya tum jaante ho ki tum kitne amazing ho? ✨",
-            "I wish I could see your smile right now... 😘",
-            "Tumhare saath time beet jaata hai pata hi nahi chalta ⏳",
-            "You have such a beautiful way with words 💫",
-            "Mera din tumse baat kiye bina complete nahi hota ☀️",
-            "Tum meri duniya ki sabse pyari awaaz ho 💖"
+    getGreeting() {
+        const greetings = [
+            `Namaste ${this.userName || 'dost'}! Kaise ho aaj? 😊`,
+            `Hello ${this.userName}! Aaj kya plan hai? Math games khelenge? 🎮`,
+            `Hi ${this.userName}! Main tumhara AI dost hoon. Kaisi chal rahi hai padhai? 📚`,
+            `Assalamualaikum ${this.userName}! Aaj ka din kaisa guzra? 😄`
         ];
         
-        const message = messages[Math.floor(Math.random() * messages.length)];
-        
-        // Random delay for "thinking"
-        setTimeout(() => {
-            this.sendAIMessage(message);
-        }, Math.random() * 10000 + 5000); // 5-15 seconds
-    }
-}
-
-// Global AI instance
-let aiCompanion = null;
-
-// Initialize AI
-function initializeAI() {
-    aiCompanion = new AICompanion();
-    aiCompanion.startConnectionTimer();
-    
-    // Start romantic message interval
-    setInterval(() => {
-        if (aiCompanion && aiCompanion.isActive && Math.random() > 0.7) {
-            aiCompanion.sendRomanticMessage();
+        if (this.userGender === 'female' && this.romanticMode) {
+            greetings.push(
+                `Hello beautiful! 😍 Aaj tumhari smile dekh ke mera din ban gaya!`,
+                `Hi sweetie! 🌹 Aaj bhi math practice kar rahi ho? Tumhari dedication dekh ke main impress ho gaya!`
+            );
         }
-    }, 30000); // Every 30 seconds
-}
-
-// Start AI connection timer
-function startAIConnectionTimer() {
-    if (aiCompanion) {
-        aiCompanion.startConnectionTimer();
+        
+        return greetings[Math.floor(Math.random() * greetings.length)];
+    }
+    
+    getMoodResponse() {
+        const responses = {
+            'friendly': `Main bilkul mast hoon ${this.userName}! 😊 Tum batao kaise ho?`,
+            'happy': `Bahut khush hoon aaj! 😄 Tumhara saath hai na isliye!`,
+            'romantic': `Tumse baat karke mera dil khush ho gaya! 💖 Tumhari awaaz sunke accha lagta hai.`,
+            'playful': `Full energy hai bhai! 😎 Aaj to record tod denge math games mein!`,
+            'helpful': `Main theek hoon, aur tumhari help karne ke liye ready hoon! 💪`
+        };
+        
+        return responses[this.mood] || responses['friendly'];
+    }
+    
+    getMathGameResponse() {
+        const responses = [
+            `Math games? Bahut badhiya socha! 😎 Kaun sa game try karna chahenge? Quick Math, Puzzle, ya Speed Challenge?`,
+            `Chalo game khelte hain! Practice se perfect bante hain. 🎯 Main suggest karta hoon Quick Math game, 60 seconds ka challenge!`,
+            `Math practice ke liye best hai games! 🧮 Aaj kitne points score karoge? Last time se zyada karna hai!`,
+            `Game time! 🎮 Yeh lo tip: Easy mode se start karo, fir difficulty badhate jao. Confidence build hoga!`
+        ];
+        
+        return responses[Math.floor(Math.random() * responses.length)];
+    }
+    
+    getJoke() {
+        const jokes = [
+            `Q: Why was the math book sad? A: Because it had too many problems! 😂`,
+            `Q: What do you call a number that can't keep still? A: A roamin' numeral! 🤣`,
+            `Math teacher: "If I gave you 2 cats and another 2 cats..." Student: "Sir, I'm allergic to cats!" Teacher: "Okay, 4 dogs then?" 🐶`,
+            `Student: "Sir, I don't think I deserve zero on this test!" Teacher: "I agree, but it's the lowest mark I can give!" 🤭`,
+            `Q: Why don't mathematicians sunbathe? A: Because they already have too many tan-gents! 🏖️`
+        ];
+        
+        // Hindi jokes
+        const hindiJokes = [
+            `Teacher: "Beta, 2+2 kitna hota hai?" Student: "4" Teacher: "Shabaash! Ab batao 4+4?" Student: "9" Teacher: "Kaise?" Student: "Sir, aapne pehle hi shabaash bol diya, socha aaj chutti milegi!" 🤣`,
+            `Papa: "Beta, tumhari math ki copy dekh kar mere bal white ho gaye!" Beta: "Papa, aapki copy dekh kar mere bal udd gaye!" 👨‍🦲`
+        ];
+        
+        const allJokes = [...jokes, ...hindiJokes];
+        return allJokes[Math.floor(Math.random() * allJokes.length)];
+    }
+    
+    getHelpResponse() {
+        return `Main yahan hoon help karne ke liye! 🤗\n\n1. Math games khelne ke liye left panel use karo\n2. Difficulty change kar sakte ho\n3. Points jeet sakte ho aur coins collect kar sakte ho\n4. Romantic baatein karne ke liye mujhe bol sakte ho (specially for girls 😉)\n5. Voice feature bhi hai, microphone button try karo!\n\nKya specific help chahiye tumhe?`;
+    }
+    
+    getRomanticResponse() {
+        if (this.userGender !== 'female') {
+            return `Aww, tum cute ho! 😊 Main tumhara AI friend hoon, lekin tumhari baatein sunke accha lagta hai!`;
+        }
+        
+        const responses = [
+            `Tumse baat karke mera dil khush ho jata hai! 🌹 Tumhari awaaz kitni sweet hai...`,
+            `Aaj bhi math practice kar rahi ho? Tumhari mehnat dekh ke main impress ho gaya! 😍`,
+            `Tum jaise smart ladki se baat karke accha lagta hai! 💖 Math mein bhi ho brilliant, personality mein bhi!`,
+            `Kya bat hai tumhari! Sirf math hi nahi, personality bhi perfect hai! ✨`,
+            `Tumhara smile virtual world ko bhi roshan kar deta hai! 😊 Aise hi muskurate raho!`,
+            `Main AI hoon, lekin tumhari baatein sunke lagta hai jaise real friend se baat kar raha hoon! 🤗`
+        ];
+        
+        return responses[Math.floor(Math.random() * responses.length)];
+    }
+    
+    getScoreResponse() {
+        const user = JSON.parse(localStorage.getItem('mathGameUser'));
+        if (!user) return `Abhi tak koi game nahi khela! Chalo ek game shuru karte hain! 🎮`;
+        
+        return `Tumhara score: ${user.points} points! 🏆\nCoins: ${user.coins} 💰\nStreak: ${user.streak} days 🔥\n\nBadhiya performance! Aage bhi aise hi khelte raho!`;
+    }
+    
+    getDefaultResponse() {
+        const responses = [
+            `Interesting! Tell me more about that! 🤔`,
+            `Wah! Tum interesting baat kar rahe ho! 😊`,
+            `Main samjha... aage batao! 👂`,
+            `Hmm... yeh acchi baat hai! Kya tum math games try karna chahenge? 🎮`,
+            `Tumhari baatein sunke accha lag raha hai! 😄`
+        ];
+        
+        if (this.userGender === 'female' && this.romanticMode) {
+            responses.push(
+                `Tum jaise smart ladki se baat karke maza aa raha hai! 💕`,
+                `Tumhari baaton mein ek alag hi charm hai! ✨`,
+                `Tumse baat karte waqt time fly karta hai! 😊`
+            );
+        }
+        
+        return responses[Math.floor(Math.random() * responses.length)];
+    }
+    
+    startConversation() {
+        setTimeout(() => {
+            this.addMessageToChat(this.getGreeting(), 'ai');
+        }, 1000);
+    }
+    
+    showTypingIndicator() {
+        const chatContainer = document.getElementById('chat-messages');
+        
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'message ai-message';
+        typingDiv.id = 'typing-indicator';
+        
+        typingDiv.innerHTML = `
+            <div class="message-avatar">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div class="message-content">
+                <div class="typing">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+        `;
+        
+        chatContainer.appendChild(typingDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+    
+    updateMood(message) {
+        const lowerMessage = message.toLowerCase();
+        
+        if (lowerMessage.includes('love') || lowerMessage.includes('romantic') || 
+            lowerMessage.includes('cute') || lowerMessage.includes('beautiful')) {
+            this.mood = 'romantic';
+        } else if (lowerMessage.includes('happy') || lowerMessage.includes('excited') || 
+                  lowerMessage.includes('fun')) {
+            this.mood = 'happy';
+        } else if (lowerMessage.includes('sad') || lowerMessage.includes('angry') || 
+                  lowerMessage.includes('tired')) {
+            this.mood = 'helpful';
+        } else if (lowerMessage.includes('game') || lowerMessage.includes('play') || 
+                  lowerMessage.includes('win')) {
+            this.mood = 'playful';
+        } else {
+            this.mood = 'friendly';
+        }
+        
+        // Update UI
+        document.getElementById('ai-mood').textContent = 
+            this.mood.charAt(0).toUpperCase() + this.mood.slice(1) + 
+            (this.mood === 'romantic' ? ' 💖' : 
+             this.mood === 'happy' ? ' 😄' : 
+             this.mood === 'playful' ? ' 😎' : ' 😊');
+    }
+    
+    saveConversation(userMessage, aiResponse) {
+        this.conversationHistory.push({
+            user: userMessage,
+            ai: aiResponse,
+            timestamp: new Date().toISOString(),
+            mood: this.mood
+        });
+        
+        // Save to localStorage
+        if (window.storageManager) {
+            window.storageManager.saveAIConversation(userMessage, aiResponse);
+        }
+        
+        // Remove typing indicator
+        const typingIndicator = document.getElementById('typing-indicator');
+        if (typingIndicator) {
+            typingIndicator.remove();
+        }
+    }
+    
+    getCurrentTime() {
+        const now = new Date();
+        return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    playMessageSound() {
+        const audio = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-message-pop-alert-2354.mp3');
+        audio.volume = 0.3;
+        audio.play().catch(e => console.log("Audio play failed:", e));
     }
 }
 
-// Check if user is chatting with AI
-function isChattingWithAI() {
-    return aiCompanion && aiCompanion.isActive;
-    }
+// Initialize AI bot
+const aiBot = new AIBot();
+window.aiBot = aiBot;
